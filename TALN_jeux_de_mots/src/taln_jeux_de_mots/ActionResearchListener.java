@@ -5,19 +5,20 @@
  */
 package taln_jeux_de_mots;
 
+import RequeterRezo.Mot;
+import RequeterRezo.RequeterRezo;
+import RequeterRezo.Terme;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.LinkedHashMap;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
-import javax.swing.JFrame;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
@@ -29,88 +30,91 @@ import javax.swing.JTextField;
 public class ActionResearchListener implements ActionListener {
     JTextField word;
     JPanel res;
-    JFrame f;
+    Interface f;
+    ArrayList<Regle> dico_regle;
 
-    public ActionResearchListener(JTextField word,JPanel res,JFrame f) {
+    public ActionResearchListener(JTextField word,JPanel res,ArrayList<Regle> dico_regle,Interface f) {
         super();
         this.word=word;
         this.res=res;
+        this.dico_regle=dico_regle;
         this.f=f;
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        f.getErrorLabel().setText("");
         res.removeAll();
         File file = new File("src/taln_jeux_de_mots/regles.txt");
-        try {
-            URL url = new URL("http://www.jeuxdemots.org/rezo.php?");
-
-            Map<String,Object> params = new LinkedHashMap<>();
-                params.put("gotermrel",word.getText());
-                params.put("onlyrels",4);
-                params.put("output","cloud");
-
-            StringBuilder postData = new StringBuilder();
-            
-            if(params != null){
-                //conversion des parametres en un format exploitable
-
-                for (Map.Entry<String,Object> param : params.entrySet()) {
-                    //si il reste encore des parametres a ajouter
-                    if (postData.length() != 0){
-                        postData.append('&');
+        try{
+            String[] infos = getInfoRezo(word.getText());
+            for(String info : infos){
+                for(Regle r : dico_regle){
+                    if(r.geteInfo().equals(info) && word.getText().endsWith(r.geteSuffixe())){
+                        res.add(new JLabel(word.getText()));
+                        res.add(new JLabel(r.geteInfo()));
+                        res.add(new JLabel(r.geteSuffixe()+"->"+r.getsSuffixe()));
+                        res.add(new JLabel(r.getsInfo()));
+                        String newWord = changeWord(word.getText(), r);
+                        res.add(new JLabel(newWord));
+                        String[] newWordInfos = getInfoRezo(newWord);
+                        boolean wordFound = false;
+                        if(newWordInfos != null){
+                            for(String newWordInfo : newWordInfos){
+                                if(r.getsInfo().equals(newWordInfo) && !wordFound){ //eviter ligne vide et problème parsage html
+                                    res.add(new JLabel("existe"));
+                                    wordFound = true;
+                                }
+                            }
+                        }
+                        if(!wordFound){
+                            res.add(new JLabel("n'existe pas"));
+                        }
                     }
-                    //ajout du parametre sous la forme "key = value" encodé en utf-8
-                    postData.append(param.getKey());
-                    postData.append('=');
-                    postData.append(param.getValue());
                 }
             }
-
-            byte[] postDataBytes = postData.toString().getBytes("UTF-8");
-
-            //connection au serveur et envoie de la requete
-            HttpURLConnection conn = (HttpURLConnection)url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-                conn.setRequestProperty("Content-Length", String.valueOf(postDataBytes.length));
-                conn.setDoOutput(true);
-                conn.getOutputStream().write(postDataBytes);
-
-            Reader Rin = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
-
-            String output = "";
-            for (int c; (c = Rin.read()) >= 0;){
-                output=output+((char)c);
+            if(res.getComponentCount()<=0){
+                f.getErrorLabel().setText(word.getText()+" a été trouvé mais aucune règle ne lui correspond");
             }
-            
-            try{
-                String[] infos = output.split("relations sortantes")[2].split("</a>");
-                for(String info : infos){
-                    System.out.println(info.split(">")[info.split(">").length-1]);
-                }
-
-                InputStream Iin = new FileInputStream(file);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(Iin));
-                String line = null;
-                while ((line = reader.readLine()) != null) {
-                    res.add(new JLabel(line));
-                }
-                
-            }
-            catch(ArrayIndexOutOfBoundsException notfound){
-                res.add(new JLabel("mot non trouvé"));
-            }
-            
-            
-            
-            
-            f.pack();
-            
         }
-        catch (Exception err) {
-            System.err.println(err);
+        catch(Exception notfound){
+            System.out.println(notfound);
+            f.getErrorLabel().setText(word.getText()+" : mot non trouvé");
+        }
+        f.pack();
+    }
+    
+    private String changeWord(String s, Regle r){
+        if(!s.endsWith(r.geteSuffixe())){
+            return "erreur lors de l'application de la règle : "+r.geteSuffixe()+"->"+r.getsSuffixe();
+        }
+        else{
+            String tmp = s.substring(0,s.lastIndexOf(r.geteSuffixe()));
+            return tmp+r.getsSuffixe();
         }
     }
     
+    private String[] getInfoRezo(String word) throws IOException, MalformedURLException, InterruptedException{
+        RequeterRezo systeme = new RequeterRezo("36h", 3000);
+        Mot mot = systeme.requete(word);
+        if(mot != null){
+            HashMap<String, ArrayList<Terme>> rs = mot.getRelations_sortantes();
+            Iterator it = rs.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry pair = (Map.Entry)it.next();
+                if(pair.getKey().equals("r_pos")){
+                    String[] info = pair.getValue().toString().substring(1, pair.getValue().toString().length()-1).split(", ");
+                    String[] res = new String[info.length];
+                    int i=0;
+                    for(String s : info){
+                        res[i]=s.substring(0, s.indexOf("="));
+                        i++;
+                    }
+                    return res;
+                }
+                it.remove(); // avoids a ConcurrentModificationException
+            }
+        }
+        return null;
+    }
 }

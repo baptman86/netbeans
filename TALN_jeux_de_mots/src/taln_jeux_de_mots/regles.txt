@@ -2,6 +2,8 @@ EtiqGramm:Ver,Nom,Adj
 Gender:Fem+Mas
 Number:SG+PL
 
+Regles :
+
 Ver:>er;Nom:>eur
 Nom:>eur;Nom:>euse
 Ver:>ger;Nom:>geoire

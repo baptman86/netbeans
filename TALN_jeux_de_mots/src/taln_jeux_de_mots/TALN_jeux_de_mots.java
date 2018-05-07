@@ -7,13 +7,14 @@ package taln_jeux_de_mots;
 
 import java.awt.Dimension;
 import java.awt.GridLayout;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
 
 /**
  *
@@ -24,47 +25,34 @@ public class TALN_jeux_de_mots {
     /**
      * @param args the command line arguments
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws FileNotFoundException, IOException {
         
-        JFrame frame = new JFrame("Jeux de mots");
+        ArrayList<Regle> dico_regles = new ArrayList<>();
         
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel,BoxLayout.Y_AXIS));
+        File file = new File("src/taln_jeux_de_mots/regles.txt");
         
-        JLabel instruct = new JLabel("entrez le mot :");
-        instruct.setAlignmentX(JLabel.CENTER_ALIGNMENT);
-        panel.add(instruct);
+        InputStream Iin = new FileInputStream(file);
         
-        JPanel wordSelect = new JPanel();
-        wordSelect.setLayout(new BoxLayout(wordSelect,BoxLayout.X_AXIS));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(Iin));
+        String line = null;
+        int phase = 0;
+        while ((line = reader.readLine()) != null) {
+            switch(line){
+                case "Regles :":
+                    phase = 1;
+                    break;
+                default:
+                    if(phase==1 && !line.equals("")){
+                        String[] e_s = line.split(";");
+                        String[] eInfo_eSuffixe = e_s[0].split(">");
+                        String[] sInfo_sSuffixe = e_s[1].split(">");
+                        dico_regles.add(new Regle(eInfo_eSuffixe[0],eInfo_eSuffixe[1],sInfo_sSuffixe[0],sInfo_sSuffixe[1]));
+                    }
+                    break;
+            }
+        }
         
-        wordSelect.add(Box.createHorizontalGlue());
-        
-        JTextField word = new JTextField();
-        word.setPreferredSize(new Dimension(500,word.getPreferredSize().height));
-        word.setMaximumSize(new Dimension(500,word.getPreferredSize().height));
-        wordSelect.add(word);
-        
-        JPanel result = new JPanel();
-        
-        JButton select = new JButton("valider");
-        select.addActionListener(new ActionResearchListener(word,result,frame));
-        wordSelect.add(select);
-        
-        wordSelect.add(Box.createHorizontalGlue());
-        
-        panel.add(wordSelect);
-        
-        result.setLayout(new GridLayout(0,3));
-        
-        panel.add(result);
-        frame.add(panel);
-        
-        
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        frame.pack();
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
+        Interface interf = new Interface(dico_regles);
     }
     
 }
